@@ -219,30 +219,44 @@ fi
 ESTATEIN_REMOTE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
   --config "${ESTATEIN_RCLONE_CONFIG}" \
   --dirs-only \
+  --recursive \
+  --max-depth 4 \
   "${ESTATEIN_RCLONE_REMOTE}:")"
 
-if grep -Fxq "${ESTATEIN_WASMER_VOLUME}/" <<<"${ESTATEIN_REMOTE_DIRS}"; then
-  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_WASMER_VOLUME}/"
-elif grep -Fxq 'plugins/' <<<"${ESTATEIN_REMOTE_DIRS}" && grep -Fxq 'themes/' <<<"${ESTATEIN_REMOTE_DIRS}"; then
+ESTATEIN_REMOTE_ROOT_CANDIDATES="$(awk '
+  { directories[$0] = 1 }
+  END {
+    for (directory in directories) {
+      if (directory ~ /(^|\/)plugins\/$/) {
+        prefix = directory
+        sub(/plugins\/$/, "", prefix)
+        if ((prefix "themes/") in directories) {
+          if (prefix == "") {
+            print "."
+          } else {
+            print prefix
+          }
+        }
+      }
+    }
+  }
+' <<<"${ESTATEIN_REMOTE_DIRS}")"
+ESTATEIN_REMOTE_ROOT_COUNT="$(sed '/^$/d' <<<"${ESTATEIN_REMOTE_ROOT_CANDIDATES}" | wc -l | tr -d ' ')"
+ESTATEIN_REMOTE_PATH_PREFIX="$(sed -n '1p' <<<"${ESTATEIN_REMOTE_ROOT_CANDIDATES}")"
+
+if [[ "${ESTATEIN_REMOTE_ROOT_COUNT}" != '1' ]]; then
+  echo "Wasmer did not expose exactly one WordPress volume root; nothing was changed" >&2
+  exit 1
+fi
+
+if [[ "${ESTATEIN_REMOTE_PATH_PREFIX}" == '.' ]]; then
   ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:"
 else
-  ESTATEIN_REMOTE_CANDIDATE_COUNT="$(sed '/^$/d' <<<"${ESTATEIN_REMOTE_DIRS}" | wc -l | tr -d ' ')"
-  ESTATEIN_REMOTE_CANDIDATE="$(sed -n '1p' <<<"${ESTATEIN_REMOTE_DIRS}")"
-
-  if [[ "${ESTATEIN_REMOTE_CANDIDATE_COUNT}" != '1' || ! "${ESTATEIN_REMOTE_CANDIDATE}" =~ ^[a-zA-Z0-9._-]+/$ ]]; then
-    echo "Expected Wasmer volume '${ESTATEIN_WASMER_VOLUME}' was not found; nothing was changed" >&2
+  if [[ ! "${ESTATEIN_REMOTE_PATH_PREFIX}" =~ ^([a-zA-Z0-9._-]+/)+$ || "${ESTATEIN_REMOTE_PATH_PREFIX}" == *'../'* ]]; then
+    echo "Wasmer returned an unsafe WordPress volume path; nothing was changed" >&2
     exit 1
   fi
-
-  ESTATEIN_CANDIDATE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
-    --config "${ESTATEIN_RCLONE_CONFIG}" \
-    --dirs-only \
-    "${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_REMOTE_CANDIDATE}")"
-  if ! grep -Fxq 'plugins/' <<<"${ESTATEIN_CANDIDATE_DIRS}" || ! grep -Fxq 'themes/' <<<"${ESTATEIN_CANDIDATE_DIRS}"; then
-    echo "The only Wasmer storage bucket is not the expected WordPress volume; nothing was changed" >&2
-    exit 1
-  fi
-  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_REMOTE_CANDIDATE}"
+  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_REMOTE_PATH_PREFIX}"
 fi
 
 ESTATEIN_RCLONE_SYNC_FLAGS=(

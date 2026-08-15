@@ -29,7 +29,7 @@ On a push to `main`, the dependent `deploy-wasmer-preview` job then:
 1. downloads that exact verified artifact;
 2. installs pinned Wasmer CLI 7.2.1 after checking its SHA-256 digest;
 3. asks Wasmer for S3-compatible volume credentials using `WASMER_TOKEN`, enabling S3 only for `/app/wp-content` if the app has never initialized remote volume access;
-4. resolves Wasmer's app-scoped, volume-scoped, or single opaque-bucket layout and accepts it only when it leads to the existing WordPress `plugins/` and `themes/` directories;
+4. searches at most four storage levels and accepts exactly one safe root containing the existing WordPress `plugins/` and `themes/` sibling directories;
 5. syncs only the packaged Estatein plugin and theme directories;
 6. checks the public theme stylesheet and site URL over HTTPS.
 
