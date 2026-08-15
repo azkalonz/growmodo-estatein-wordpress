@@ -18,6 +18,69 @@ function estatein_asset_uri( $path ) {
 }
 
 /**
+ * Return bundled property images when imported Media Library records are missing.
+ *
+ * WordPress imports post meta even when a remote attachment download fails. That
+ * can leave featured-image and gallery IDs pointing at posts that do not exist.
+ * The theme ships the demo imagery, so use those files as a reliable fallback.
+ *
+ * @param int $post_id Property ID.
+ * @return array<int,string> Relative paths under the theme assets directory.
+ */
+function estatein_property_fallback_images( $post_id ) {
+	$slug = get_post_field( 'post_name', $post_id );
+	$map  = array(
+		'seaside-serenity-villa' => array(
+			'images/properties/seaside-serenity-villa.webp',
+			'images/properties/seaside/gallery-01.webp',
+			'images/properties/seaside/gallery-02.webp',
+			'images/properties/seaside/gallery-03.webp',
+			'images/properties/seaside/gallery-04.webp',
+			'images/properties/seaside/gallery-05.webp',
+			'images/properties/seaside/gallery-06.webp',
+			'images/properties/seaside/gallery-07.webp',
+			'images/properties/seaside/gallery-08.webp',
+			'images/properties/seaside/gallery-09.webp',
+			'images/properties/seaside/gallery-10.webp',
+		),
+		'metropolitan-haven'     => array(
+			'images/properties/metropolitan-haven.webp',
+			'images/figma/properties-raw-02.png',
+		),
+		'rustic-retreat-cottage' => array(
+			'images/properties/rustic-retreat-cottage.webp',
+			'images/figma/properties-raw-05.png',
+		),
+		'urban-oasis-penthouse'  => array(
+			'images/figma/properties-raw-03.png',
+			'images/figma/property-raw-17.png',
+		),
+		'garden-grove-townhouse' => array( 'images/figma/properties-raw-04.png' ),
+		'mountain-view-retreat'  => array( 'images/figma/properties-raw-06.png' ),
+	);
+
+	return $map[ $slug ] ?? array( 'images/properties/seaside-serenity-villa.webp' );
+}
+
+/**
+ * Return a bundled team portrait for imported members with missing attachments.
+ *
+ * @param int $post_id Team member ID.
+ * @return string Relative path under the theme assets directory.
+ */
+function estatein_team_fallback_image( $post_id ) {
+	$slug = get_post_field( 'post_name', $post_id );
+	$map  = array(
+		'max-mitchell'   => 'images/team/max-mitchell.webp',
+		'sarah-johnson'  => 'images/team/sarah-johnson.webp',
+		'david-brown'    => 'images/team/david-brown.webp',
+		'michael-turner' => 'images/team/michael-turner.webp',
+	);
+
+	return $map[ $slug ] ?? '';
+}
+
+/**
  * Render an exported Figma icon.
  *
  * @param string $name       Asset basename without extension.
@@ -143,23 +206,31 @@ function estatein_property_gallery_images( $post_id ) {
 	}
 
 	if ( ! $images && has_post_thumbnail( $post_id ) ) {
-		$image_id = get_post_thumbnail_id( $post_id );
-		$images[] = array(
-			'id'    => $image_id,
-			'url'   => wp_get_attachment_image_url( $image_id, 'estatein-gallery-large' ),
-			'thumb' => wp_get_attachment_image_url( $image_id, 'thumbnail' ),
-			'alt'   => get_post_meta( $image_id, '_wp_attachment_image_alt', true ),
-		);
+		$image_id  = get_post_thumbnail_id( $post_id );
+		$image_url = wp_get_attachment_image_url( $image_id, 'estatein-gallery-large' );
+		if ( $image_url ) {
+			$thumbnail_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+			$images[]      = array(
+				'id'    => $image_id,
+				'url'   => $image_url,
+				'thumb' => $thumbnail_url ? $thumbnail_url : $image_url,
+				'alt'   => get_post_meta( $image_id, '_wp_attachment_image_alt', true ),
+			);
+		}
 	}
 
 	if ( ! $images ) {
-		for ( $index = 1; $index <= 10; $index++ ) {
-			$url      = estatein_asset_uri( 'images/properties/seaside/gallery-' . str_pad( (string) $index, 2, '0', STR_PAD_LEFT ) . '.webp' );
+		foreach ( estatein_property_fallback_images( $post_id ) as $path ) {
+			$url      = estatein_asset_uri( $path );
 			$images[] = array(
 				'id'    => 0,
 				'url'   => $url,
 				'thumb' => $url,
-				'alt'   => __( 'View of Seaside Serenity Villa', 'estatein' ),
+				'alt'   => sprintf(
+					/* translators: %s: Property title. */
+					__( 'View of %s', 'estatein' ),
+					get_the_title( $post_id )
+				),
 			);
 		}
 	}
@@ -221,9 +292,14 @@ function estatein_property_view_model( $property ) {
 		return $property;
 	}
 
-	$post_id = $property instanceof WP_Post ? $property->ID : (int) $property;
-	$terms   = wp_get_post_terms( $post_id, 'estatein_property_type', array( 'fields' => 'names' ) );
-	$types   = is_wp_error( $terms ) ? array() : $terms;
+	$post_id  = $property instanceof WP_Post ? $property->ID : (int) $property;
+	$terms    = wp_get_post_terms( $post_id, 'estatein_property_type', array( 'fields' => 'names' ) );
+	$types    = is_wp_error( $terms ) ? array() : $terms;
+	$image_id = get_post_thumbnail_id( $post_id );
+	if ( $image_id && ! wp_get_attachment_image_url( $image_id, 'estatein-property-card' ) ) {
+		$image_id = 0;
+	}
+	$fallback_images = estatein_property_fallback_images( $post_id );
 
 	return array(
 		'title'         => get_the_title( $post_id ),
@@ -233,8 +309,8 @@ function estatein_property_view_model( $property ) {
 		'bathrooms'     => estatein_property_field( $post_id, 'bathrooms', 3 ) . '-Bathroom',
 		'property_type' => ! empty( $types ) ? $types[0] : estatein_property_field( $post_id, 'property_type', 'Villa' ),
 		'location'      => estatein_property_field( $post_id, 'address', '' ),
-		'image_id'      => get_post_thumbnail_id( $post_id ),
-		'image'         => 'images/properties/seaside-serenity-villa.webp',
+		'image_id'      => $image_id,
+		'image'         => $fallback_images[0],
 		'url'           => get_permalink( $post_id ),
 	);
 }

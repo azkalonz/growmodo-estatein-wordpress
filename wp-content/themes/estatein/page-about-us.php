@@ -235,19 +235,15 @@ $clients = array(
 					$member_role   = function_exists( 'estatein_core_get_team_field' ) ? estatein_core_get_team_field( get_the_ID(), 'role', 'Estatein Advisor' ) : get_post_meta( get_the_ID(), 'estatein_role', true );
 					$member_social = function_exists( 'estatein_core_get_team_field' ) ? estatein_core_get_team_field( get_the_ID(), 'twitter', 'https://x.com/' ) : get_post_meta( get_the_ID(), 'estatein_twitter', true );
 					$member_email  = function_exists( 'estatein_core_get_team_field' ) ? estatein_core_get_team_field( get_the_ID(), 'email', 'info@estatein.com' ) : get_post_meta( get_the_ID(), 'estatein_email', true );
+					$member_image  = get_the_post_thumbnail_url( get_the_ID(), 'full' );
+					if ( ! $member_image ) {
+						$fallback_image = estatein_team_fallback_image( get_the_ID() );
+						$member_image   = $fallback_image ? estatein_asset_uri( $fallback_image ) : '';
+					}
 					?>
 					<article class="team-card">
-						<?php if ( has_post_thumbnail() ) : ?>
-							<?php
-							the_post_thumbnail(
-								'full',
-								array(
-									'class'   => 'team-card__image',
-									'loading' => 'lazy',
-									'alt'     => '',
-								)
-							);
-							?>
+						<?php if ( $member_image ) : ?>
+							<img class="team-card__image" src="<?php echo esc_url( $member_image ); ?>" alt="" width="600" height="512" loading="lazy">
 						<?php endif; ?>
 						<a class="team-card__social" href="<?php echo esc_url( $member_social ? $member_social : 'https://x.com/' ); ?>" target="_blank" rel="noopener noreferrer"><span class="screen-reader-text"><?php /* translators: %s: Team member name. */ printf( esc_html__( '%s on X', 'estatein' ), esc_html( get_the_title() ) ); ?></span><?php estatein_icon( 'x' ); ?></a>
 						<h3><?php the_title(); ?></h3>
