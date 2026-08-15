@@ -226,8 +226,23 @@ if grep -Fxq "${ESTATEIN_WASMER_VOLUME}/" <<<"${ESTATEIN_REMOTE_DIRS}"; then
 elif grep -Fxq 'plugins/' <<<"${ESTATEIN_REMOTE_DIRS}" && grep -Fxq 'themes/' <<<"${ESTATEIN_REMOTE_DIRS}"; then
   ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:"
 else
-  echo "Expected Wasmer volume '${ESTATEIN_WASMER_VOLUME}' was not found; nothing was changed" >&2
-  exit 1
+  ESTATEIN_REMOTE_CANDIDATE_COUNT="$(sed '/^$/d' <<<"${ESTATEIN_REMOTE_DIRS}" | wc -l | tr -d ' ')"
+  ESTATEIN_REMOTE_CANDIDATE="$(sed -n '1p' <<<"${ESTATEIN_REMOTE_DIRS}")"
+
+  if [[ "${ESTATEIN_REMOTE_CANDIDATE_COUNT}" != '1' || ! "${ESTATEIN_REMOTE_CANDIDATE}" =~ ^[a-zA-Z0-9._-]+/$ ]]; then
+    echo "Expected Wasmer volume '${ESTATEIN_WASMER_VOLUME}' was not found; nothing was changed" >&2
+    exit 1
+  fi
+
+  ESTATEIN_CANDIDATE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
+    --config "${ESTATEIN_RCLONE_CONFIG}" \
+    --dirs-only \
+    "${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_REMOTE_CANDIDATE}")"
+  if ! grep -Fxq 'plugins/' <<<"${ESTATEIN_CANDIDATE_DIRS}" || ! grep -Fxq 'themes/' <<<"${ESTATEIN_CANDIDATE_DIRS}"; then
+    echo "The only Wasmer storage bucket is not the expected WordPress volume; nothing was changed" >&2
+    exit 1
+  fi
+  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_REMOTE_CANDIDATE}"
 fi
 
 ESTATEIN_RCLONE_SYNC_FLAGS=(
