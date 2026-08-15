@@ -1,0 +1,31 @@
+# Local configuration and operating-system files.
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Dependency directories.
+/node_modules/
+/vendor/
+
+# Local WordPress state. Source-controlled theme assets live under the theme.
+/wp-content/uploads/
+/wp-content/cache/
+/wp-content/upgrade/
+/wp-content/debug.log
+
+# Test and audit output.
+/coverage/
+/playwright-report/
+/test-results/
+/.lighthouseci/
+/reports/
+
+# Editor files.
+/.idea/
+/.vscode/
+*.swp
+*.swo
+
+# Temporary package output; final ZIPs and checksums in dist are intentional.
+/dist/*.tmp

@@ -1,0 +1,129 @@
+name: ${COMPOSE_PROJECT_NAME:-estatein-trial}
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${ESTATEIN_DB_NAME:?Copy .env.example to .env}
+      MYSQL_USER: ${ESTATEIN_DB_USER:?Copy .env.example to .env}
+      MYSQL_PASSWORD: ${ESTATEIN_DB_PASSWORD:?Copy .env.example to .env}
+      MYSQL_ROOT_PASSWORD: ${ESTATEIN_DB_ROOT_PASSWORD:?Copy .env.example to .env}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping --host=127.0.0.1 --user=root --password="$${MYSQL_ROOT_PASSWORD}" --silent
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    volumes:
+      - database_data:/var/lib/mysql
+    networks:
+      - estatein_internal
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 500
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - '127.0.0.1:8026:8025'
+    volumes:
+      - mailpit_data:/data
+    networks:
+      - estatein_internal
+      - estatein_web
+
+  wordpress:
+    build:
+      context: .
+      dockerfile: docker/wordpress/Dockerfile
+    image: estatein-wordpress:7.0.4-php8.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${ESTATEIN_DB_NAME:?Copy .env.example to .env}
+      WORDPRESS_DB_USER: ${ESTATEIN_DB_USER:?Copy .env.example to .env}
+      WORDPRESS_DB_PASSWORD: ${ESTATEIN_DB_PASSWORD:?Copy .env.example to .env}
+      WORDPRESS_TABLE_PREFIX: ${ESTATEIN_DB_PREFIX:-wp_}
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'WP_ENVIRONMENT_TYPE', 'local' );
+        define( 'WP_DEBUG', true );
+        define( 'WP_DEBUG_LOG', true );
+        define( 'WP_DEBUG_DISPLAY', false );
+        define( 'SCRIPT_DEBUG', true );
+        define( 'DISALLOW_FILE_EDIT', true );
+        define( 'WP_HOME', '${ESTATEIN_SITE_URL:-http://127.0.0.1:8080}' );
+        define( 'WP_SITEURL', '${ESTATEIN_SITE_URL:-http://127.0.0.1:8080}' );
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          php -r 'exit(@fsockopen("127.0.0.1", 80) ? 0 : 1);'
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    ports:
+      - '127.0.0.1:8080:80'
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wp-content/themes/estatein:/var/www/html/wp-content/themes/estatein
+      - ./wp-content/plugins/estatein-core:/var/www/html/wp-content/plugins/estatein-core
+    networks:
+      - estatein_internal
+      - estatein_web
+
+  wpcli:
+    image: wordpress:cli-php8.3
+    profiles: ['tools']
+    entrypoint: ['wp']
+    user: '0:0'
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_healthy
+    environment:
+      WP_CLI_ALLOW_ROOT: '1'
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${ESTATEIN_DB_NAME:?Copy .env.example to .env}
+      WORDPRESS_DB_USER: ${ESTATEIN_DB_USER:?Copy .env.example to .env}
+      WORDPRESS_DB_PASSWORD: ${ESTATEIN_DB_PASSWORD:?Copy .env.example to .env}
+      WORDPRESS_TABLE_PREFIX: ${ESTATEIN_DB_PREFIX:-wp_}
+    working_dir: /var/www/html
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wp-content/themes/estatein:/var/www/html/wp-content/themes/estatein
+      - ./wp-content/plugins/estatein-core:/var/www/html/wp-content/plugins/estatein-core
+      - ./demo-content:/exports
+    networks:
+      - estatein_internal
+      - estatein_web
+
+volumes:
+  database_data:
+  mailpit_data:
+  wordpress_data:
+
+networks:
+  estatein_internal:
+    driver: bridge
+    internal: true
+  estatein_web:
+    driver: bridge

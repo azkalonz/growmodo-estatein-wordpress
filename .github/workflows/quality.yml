@@ -1,0 +1,66 @@
+name: Quality checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:2.10.2
+
+      - name: Install PHP quality tools
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Check PHP syntax
+        run: composer lint:php
+
+      - name: Run WordPress coding standards
+        run: composer phpcs
+
+      - name: Audit PHP dependencies
+        run: composer audit --locked
+
+      - name: Check shell syntax
+        run: bash -n scripts/*.sh
+
+      - name: Validate Docker Compose model
+        run: docker compose --env-file .env.example config --quiet
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install frontend quality tools
+        run: npm ci
+
+      - name: Lint JavaScript
+        run: npm run lint:js
+
+      - name: Lint CSS
+        run: npm run lint:css
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Audit Node dependencies
+        run: npm run audit
+
+      - name: Build and verify release artifacts
+        run: make package
