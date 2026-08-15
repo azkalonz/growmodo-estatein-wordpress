@@ -108,7 +108,7 @@ jobs:
       - name: Install rclone
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends rclone
+          sudo apt-get install --yes --no-install-recommends jq rclone
 
       - name: Install pinned Wasmer CLI
         run: |
