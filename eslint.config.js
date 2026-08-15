@@ -13,7 +13,10 @@ export default [
   },
   eslint.configs.recommended,
   {
-    files: ['wp-content/themes/estatein/assets/js/**/*.js'],
+    files: [
+      'wp-content/themes/estatein/assets/js/**/*.js',
+      'wp-content/plugins/estatein-core/assets/js/**/*.js',
+    ],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -27,6 +30,8 @@ export default [
         matchMedia: 'readonly',
         navigator: 'readonly',
         requestAnimationFrame: 'readonly',
+        estateinPropertyGallery: 'readonly',
+        wp: 'readonly',
         window: 'readonly',
       },
     },

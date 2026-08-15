@@ -33,7 +33,7 @@ This fallback does not replace the required Firefox and WebKit release run.
 1. Run `make install`, then confirm `./scripts/wp.sh core version` reports 7.0.4 and `./scripts/wp.sh eval 'echo PHP_VERSION;'` reports PHP 8.3.x.
 2. Visit all six routes while tailing `wp-content/debug.log`; the log must contain no warnings/notices from Estatein.
 3. Confirm property filters preserve `keyword`, `estatein_location`, `estatein_property_type`, min/max price, min/max area, and page values. Test a real result and the designed no-results state.
-4. Create/edit/publish a property and a team member using ACF. Deactivate ACF temporarily and verify public templates still render their post-meta/fallback values.
+4. Create/edit/publish a property and a team member using ACF. Deactivate ACF temporarily, set a Property Image plus Additional Property Images with the native Media Library controls, and verify public templates render the saved post-meta values.
 5. Run `make seed` twice and compare post/term/menu counts; no fixture item may duplicate.
 6. Run `make qa-plugins`. Execute Plugin Check from WP-CLI and WordPress Theme Check from **Appearance → Theme Check**; classify any development-only warning in the handoff instead of hiding it.
 

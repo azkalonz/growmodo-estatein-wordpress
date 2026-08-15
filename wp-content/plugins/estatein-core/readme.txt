@@ -4,7 +4,7 @@ Tags: real estate, property, inquiries, acf
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,8 @@ Estatein Core registers property and team content, property taxonomies, private
 inquiry records, archive filters, form handlers, lightweight metadata, and
 property JSON-LD. ACF Free 6.8.7 can enhance the editor, but is optional: every
 frontend accessor falls back to native WordPress post meta and seeded defaults.
+Without ACF, property editors still include the native Property Image panel and
+Media Library selectors for up to eight additional gallery images.
 
 Valid contact, property-inquiry, and newsletter submissions are stored before
 email is attempted, so a hosting mail failure cannot lose a request.

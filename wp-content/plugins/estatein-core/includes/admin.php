@@ -8,6 +8,146 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
+ * Add native Media Library controls when ACF is not available.
+ *
+ * @return void
+ */
+function estatein_core_add_property_gallery_meta_box() {
+	if ( function_exists( 'acf_add_local_field_group' ) ) {
+		return;
+	}
+
+	add_meta_box(
+		'estatein-property-gallery',
+		__( 'Additional Property Images', 'estatein-core' ),
+		'estatein_core_render_property_gallery_meta_box',
+		'estatein_property',
+		'normal',
+		'default'
+	);
+}
+add_action( 'add_meta_boxes_estatein_property', 'estatein_core_add_property_gallery_meta_box' );
+
+/**
+ * Render eight optional property gallery image selectors.
+ *
+ * @param WP_Post $post Property being edited.
+ * @return void
+ */
+function estatein_core_render_property_gallery_meta_box( $post ) {
+	wp_nonce_field( 'estatein_core_save_property_gallery', 'estatein_core_property_gallery_nonce' );
+	?>
+	<p class="description">
+		<?php esc_html_e( 'Choose up to eight additional images from the Media Library. The Property Image in the editor sidebar is used on listing cards.', 'estatein-core' ); ?>
+	</p>
+	<table class="widefat striped" data-estatein-property-gallery>
+		<tbody>
+			<?php for ( $index = 1; $index <= 8; $index++ ) : ?>
+				<?php
+				$meta_key      = 'estatein_gallery_' . $index;
+				$image_id      = absint( get_post_meta( $post->ID, $meta_key, true ) );
+				$image_preview = $image_id ? wp_get_attachment_image( $image_id, 'thumbnail' ) : '';
+				?>
+				<tr data-estatein-gallery-slot>
+					<th scope="row">
+						<label for="<?php echo esc_attr( $meta_key ); ?>">
+							<?php /* translators: %d: Additional image position. */ ?>
+							<?php printf( esc_html__( 'Additional image %d', 'estatein-core' ), (int) $index ); ?>
+						</label>
+					</th>
+					<td>
+						<input id="<?php echo esc_attr( $meta_key ); ?>" type="hidden" name="<?php echo esc_attr( $meta_key ); ?>" value="<?php echo esc_attr( $image_id ); ?>" data-estatein-gallery-input>
+						<div aria-live="polite" data-estatein-gallery-preview>
+							<?php if ( $image_preview ) : ?>
+								<?php echo wp_kses_post( $image_preview ); ?>
+							<?php elseif ( $image_id ) : ?>
+								<span class="description"><?php esc_html_e( 'The imported image is unavailable. Choose a replacement.', 'estatein-core' ); ?></span>
+							<?php else : ?>
+								<span class="description"><?php esc_html_e( 'No image selected.', 'estatein-core' ); ?></span>
+							<?php endif; ?>
+						</div>
+						<p>
+							<button class="button" type="button" data-estatein-gallery-select><?php esc_html_e( 'Select image', 'estatein-core' ); ?></button>
+							<button class="button-link-delete" type="button" data-estatein-gallery-remove <?php hidden( ! $image_id ); ?>><?php esc_html_e( 'Remove image', 'estatein-core' ); ?></button>
+						</p>
+					</td>
+				</tr>
+			<?php endfor; ?>
+		</tbody>
+	</table>
+	<?php
+}
+
+/**
+ * Load the native WordPress media picker on property edit screens.
+ *
+ * @param string $hook_suffix Current admin page hook.
+ * @return void
+ */
+function estatein_core_enqueue_property_gallery_assets( $hook_suffix ) {
+	if ( function_exists( 'acf_add_local_field_group' ) || ! in_array( $hook_suffix, array( 'post.php', 'post-new.php' ), true ) ) {
+		return;
+	}
+
+	$screen = get_current_screen();
+	if ( ! $screen || 'estatein_property' !== $screen->post_type ) {
+		return;
+	}
+
+	wp_enqueue_media();
+	wp_enqueue_script(
+		'estatein-core-property-gallery',
+		plugins_url( 'assets/js/property-gallery.js', ESTATEIN_CORE_FILE ),
+		array( 'media-editor' ),
+		ESTATEIN_CORE_VERSION,
+		true
+	);
+	wp_localize_script(
+		'estatein-core-property-gallery',
+		'estateinPropertyGallery',
+		array(
+			'dialogTitle' => __( 'Select a property image', 'estatein-core' ),
+			'buttonText'  => __( 'Use this image', 'estatein-core' ),
+			'emptyText'   => __( 'No image selected.', 'estatein-core' ),
+			'imageAlt'    => __( 'Selected property image', 'estatein-core' ),
+		)
+	);
+}
+add_action( 'admin_enqueue_scripts', 'estatein_core_enqueue_property_gallery_assets' );
+
+/**
+ * Save native property gallery image selections.
+ *
+ * @param int $post_id Property ID.
+ * @return void
+ */
+function estatein_core_save_property_gallery( $post_id ) {
+	if ( ! isset( $_POST['estatein_core_property_gallery_nonce'] ) ) {
+		return;
+	}
+
+	$nonce = sanitize_text_field( wp_unslash( $_POST['estatein_core_property_gallery_nonce'] ) );
+	if ( ! wp_verify_nonce( $nonce, 'estatein_core_save_property_gallery' ) ) {
+		return;
+	}
+	if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || wp_is_post_revision( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
+		return;
+	}
+
+	for ( $index = 1; $index <= 8; $index++ ) {
+		$meta_key = 'estatein_gallery_' . $index;
+		$image_id = isset( $_POST[ $meta_key ] ) ? absint( wp_unslash( $_POST[ $meta_key ] ) ) : 0;
+
+		if ( $image_id && wp_attachment_is_image( $image_id ) ) {
+			update_post_meta( $post_id, $meta_key, $image_id );
+		} else {
+			delete_post_meta( $post_id, $meta_key );
+		}
+	}
+}
+add_action( 'save_post_estatein_property', 'estatein_core_save_property_gallery' );
+
+/**
  * Configure useful inquiry-list columns.
  *
  * @param array<string, string> $columns Existing columns.

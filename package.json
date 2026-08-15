@@ -11,7 +11,7 @@
   "scripts": {
     "audit": "npm audit --audit-level=high",
     "lint": "npm run lint:js && npm run lint:css && npm run format:check",
-    "lint:js": "eslint --no-error-on-unmatched-pattern \"wp-content/themes/estatein/assets/js/**/*.js\" scripts tests playwright.config.mjs eslint.config.js",
+    "lint:js": "eslint --no-error-on-unmatched-pattern \"wp-content/themes/estatein/assets/js/**/*.js\" \"wp-content/plugins/estatein-core/assets/js/**/*.js\" scripts tests playwright.config.mjs eslint.config.js",
     "lint:css": "stylelint \"wp-content/themes/estatein/**/*.css\"",
     "format:check": "prettier --check README.md TESTING.md package.json composer.json docker-compose.yml eslint.config.js \"*.config.mjs\" \".github/**/*.yml\" \"docs/**/*.md\" \"scripts/**/*.mjs\" \"tests/**/*.mjs\"",
     "lighthouse": "node tests/lighthouse/run.mjs",
