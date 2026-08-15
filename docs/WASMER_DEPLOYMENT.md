@@ -29,7 +29,7 @@ On a push to `main`, the dependent `deploy-wasmer-preview` job then:
 1. downloads that exact verified artifact;
 2. installs `jq` and `rclone` from the GitHub-hosted Ubuntu package repositories;
 3. requests current per-volume S3 credentials from Wasmer using `WASMER_TOKEN`, enabling S3 only for `/app/wp-content` if the app has never initialized remote volume access;
-4. maps `/app/wp-content` to its Wasmer `volumeId` bucket and confirms that bucket contains the existing WordPress `plugins/` and `themes/` directories;
+4. requires exactly one `/app/wp-content` mapping and targets its validated Wasmer `volumeId` bucket;
 5. syncs only the packaged Estatein plugin and theme directories;
 6. checks the public theme stylesheet and site URL over HTTPS.
 

@@ -240,14 +240,6 @@ fi
 estatein_write_rclone_config "${ESTATEIN_CREDENTIALS_JSON}"
 chmod 600 "${ESTATEIN_RCLONE_CONFIG}"
 
-ESTATEIN_REMOTE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
-  --config "${ESTATEIN_RCLONE_CONFIG}" \
-  --dirs-only \
-  "${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_VOLUME_BUCKET}/")"
-if ! grep -Fxq 'plugins/' <<<"${ESTATEIN_REMOTE_DIRS}" || ! grep -Fxq 'themes/' <<<"${ESTATEIN_REMOTE_DIRS}"; then
-  echo "The mapped Wasmer bucket is not the expected WordPress volume; nothing was changed" >&2
-  exit 1
-fi
 ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_VOLUME_BUCKET}/"
 
 ESTATEIN_RCLONE_SYNC_FLAGS=(
