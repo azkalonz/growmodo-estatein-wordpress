@@ -68,7 +68,7 @@ function estatein_core_render_property_gallery_meta_box( $post ) {
 						</div>
 						<p>
 							<button class="button" type="button" data-estatein-gallery-select><?php esc_html_e( 'Select image', 'estatein-core' ); ?></button>
-							<button class="button-link-delete" type="button" data-estatein-gallery-remove <?php hidden( ! $image_id ); ?>><?php esc_html_e( 'Remove image', 'estatein-core' ); ?></button>
+							<button class="button-link-delete" type="button" data-estatein-gallery-remove<?php echo esc_attr( $image_id ? '' : ' hidden' ); ?>><?php esc_html_e( 'Remove image', 'estatein-core' ); ?></button>
 						</p>
 					</td>
 				</tr>

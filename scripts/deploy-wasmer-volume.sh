@@ -81,7 +81,7 @@ estatein_post_graphql() {
     --output "${ESTATEIN_GRAPHQL_RESPONSE}"
 
   if ! jq -e '(.errors // []) | length == 0' "${ESTATEIN_GRAPHQL_RESPONSE}" >/dev/null; then
-    echo "Wasmer rejected the volume configuration request; nothing was changed" >&2
+    echo "Wasmer rejected the deployment API request" >&2
     jq -r '.errors[]?.message // empty' "${ESTATEIN_GRAPHQL_RESPONSE}" | head -n 3 >&2
     return 1
   fi
@@ -95,7 +95,7 @@ estatein_query_volume() {
     --arg owner "${estatein_owner}" \
     --arg name "${estatein_app_name}" \
     '{
-      query: "query EstateinDeployVolumes($owner: String!, $name: String!) { getDeployApp(owner: $owner, name: $name) { volumes(first: 100) { edges { node { id volumeId mountPath s3Enabled s3 { accessKey secretKey endpoint } } } } } }",
+      query: "query EstateinDeployVolumes($owner: String!, $name: String!) { getDeployApp(owner: $owner, name: $name) { id activeVersion { id } volumes(first: 100) { edges { node { id volumeId mountPath s3Enabled s3 { accessKey secretKey endpoint } } } } } }",
       variables: {owner: $owner, name: $name}
     }' >"${ESTATEIN_GRAPHQL_REQUEST}"
   estatein_post_graphql
@@ -146,6 +146,40 @@ estatein_rotate_volume_credentials() {
   fi
 
   jq -ec '.data.rotateS3Credentials | {accessKey, secretKey, endpoint}' "${ESTATEIN_GRAPHQL_RESPONSE}"
+}
+
+estatein_purge_app_cache() {
+  local estatein_version_id="$1"
+
+  jq -n \
+    --arg id "${estatein_version_id}" \
+    '{
+      query: "mutation EstateinPurgeAppCache($id: ID!) { purgeCacheForAppVersion(input: {id: $id}) { success } }",
+      variables: {id: $id}
+    }' >"${ESTATEIN_GRAPHQL_REQUEST}"
+  estatein_post_graphql
+
+  if ! jq -e '.data.purgeCacheForAppVersion.success == true' "${ESTATEIN_GRAPHQL_RESPONSE}" >/dev/null; then
+    echo "Wasmer did not confirm the InstaBoot cache purge" >&2
+    return 1
+  fi
+}
+
+estatein_redeploy_active_version() {
+  local estatein_app_id="$1"
+
+  jq -n \
+    --arg appId "${estatein_app_id}" \
+    '{
+      query: "mutation EstateinRestartApp($appId: ID!) { redeployActiveAppVersion(input: {appId: $appId}) { app { id } } }",
+      variables: {appId: $appId}
+    }' >"${ESTATEIN_GRAPHQL_REQUEST}"
+  estatein_post_graphql
+
+  if ! jq -e --arg id "${estatein_app_id}" '.data.redeployActiveAppVersion.app.id == $id' "${ESTATEIN_GRAPHQL_RESPONSE}" >/dev/null; then
+    echo "Wasmer did not confirm the active app version restart" >&2
+    return 1
+  fi
 }
 
 estatein_write_rclone_config() {
@@ -286,6 +320,17 @@ if ! "${ESTATEIN_RCLONE_BIN}" purge \
   --config "${ESTATEIN_RCLONE_CONFIG}"; then
   echo "Warning: deployed successfully but could not remove the temporary staging files" >&2
 fi
+
+echo "Refreshing the active Wasmer app version..."
+estatein_query_volume
+ESTATEIN_APP_ID="$(jq -er '.data.getDeployApp.id' "${ESTATEIN_GRAPHQL_RESPONSE}")"
+ESTATEIN_APP_VERSION_ID="$(jq -er '.data.getDeployApp.activeVersion.id' "${ESTATEIN_GRAPHQL_RESPONSE}")"
+
+echo "Purging the previous Wasmer InstaBoot snapshot..."
+estatein_purge_app_cache "${ESTATEIN_APP_VERSION_ID}"
+
+echo "Restarting the active Wasmer app version..."
+estatein_redeploy_active_version "${ESTATEIN_APP_ID}"
 
 echo "Waiting for the public preview to serve the deployed theme..."
 curl \
