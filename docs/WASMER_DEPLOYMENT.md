@@ -28,12 +28,12 @@ On a push to `main`, the dependent `deploy-wasmer-preview` job then:
 
 1. downloads that exact verified artifact;
 2. installs pinned Wasmer CLI 7.2.1 after checking its SHA-256 digest;
-3. asks Wasmer for short-lived S3-compatible volume credentials using `WASMER_TOKEN`;
+3. asks Wasmer for S3-compatible volume credentials using `WASMER_TOKEN`, initializing them once if the app has never created them;
 4. confirms that the app exposes the expected `wp-content` volume;
 5. syncs only the packaged Estatein plugin and theme directories;
 6. checks the public theme stylesheet and site URL over HTTPS.
 
-Concurrent deployments are serialized. The generated rclone credentials live only in the runner's temporary directory and are deleted when the deployment step exits.
+Concurrent deployments are serialized. Credential initialization output and the generated rclone configuration live only in the runner's permission-restricted temporary directory, never appear in the job log, and are deleted when the deployment step exits. Existing credentials are not rotated during normal deployments.
 
 ## One-time GitHub setup
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 ESTATEIN_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ESTATEIN_DIST_DIR="${ESTATEIN_DIST_DIR:-${ESTATEIN_ROOT_DIR}/dist}"
@@ -53,6 +54,8 @@ done
 
 ESTATEIN_DEPLOY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/estatein-wasmer-deploy.XXXXXX")"
 ESTATEIN_RCLONE_CONFIG="${ESTATEIN_DEPLOY_DIR}/rclone.conf"
+ESTATEIN_CREDENTIAL_ERROR="${ESTATEIN_DEPLOY_DIR}/credentials-error.log"
+ESTATEIN_ROTATION_OUTPUT="${ESTATEIN_DEPLOY_DIR}/rotation-output.log"
 cleanup() {
   rm -rf "${ESTATEIN_DEPLOY_DIR}"
 }
@@ -71,9 +74,36 @@ for release_dir in \
 done
 
 echo "Requesting temporary volume credentials for ${ESTATEIN_WASMER_APP}..."
-"${ESTATEIN_WASMER_BIN}" app volumes credentials \
-  "${ESTATEIN_WASMER_APP}" \
-  --format=rclone >"${ESTATEIN_RCLONE_CONFIG}"
+estatein_fetch_volume_credentials() {
+  "${ESTATEIN_WASMER_BIN}" app volumes credentials \
+    "${ESTATEIN_WASMER_APP}" \
+    --format=rclone \
+    >"${ESTATEIN_RCLONE_CONFIG}" \
+    2>"${ESTATEIN_CREDENTIAL_ERROR}"
+}
+
+if ! estatein_fetch_volume_credentials; then
+  if ! grep -Fq 'app does not have S3 credentials' "${ESTATEIN_CREDENTIAL_ERROR}"; then
+    echo "Wasmer could not provide volume credentials; nothing was changed" >&2
+    exit 1
+  fi
+
+  echo "Initializing volume credentials for this app..."
+  if ! "${ESTATEIN_WASMER_BIN}" app volumes rotate-secrets \
+    "${ESTATEIN_WASMER_APP}" \
+    --format=json \
+    --quiet \
+    >"${ESTATEIN_ROTATION_OUTPUT}" \
+    2>&1; then
+    echo "Wasmer could not initialize volume credentials; nothing was changed" >&2
+    exit 1
+  fi
+
+  if ! estatein_fetch_volume_credentials; then
+    echo "Wasmer did not return volume credentials after initialization; nothing was changed" >&2
+    exit 1
+  fi
+fi
 chmod 600 "${ESTATEIN_RCLONE_CONFIG}"
 
 ESTATEIN_RCLONE_REMOTE="$(
