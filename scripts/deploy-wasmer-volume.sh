@@ -241,6 +241,12 @@ estatein_write_rclone_config "${ESTATEIN_CREDENTIALS_JSON}"
 chmod 600 "${ESTATEIN_RCLONE_CONFIG}"
 
 ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_VOLUME_BUCKET}/"
+ESTATEIN_DEPLOY_REVISION="${GITHUB_SHA:-manual}"
+if [[ ! "${ESTATEIN_DEPLOY_REVISION}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Invalid deployment revision; refusing to create an unsafe staging path" >&2
+  exit 1
+fi
+ESTATEIN_REMOTE_STAGE_ROOT="${ESTATEIN_REMOTE_ROOT}.estatein-deploy/${ESTATEIN_DEPLOY_REVISION}/"
 
 ESTATEIN_RCLONE_SYNC_FLAGS=(
   --config "${ESTATEIN_RCLONE_CONFIG}"
@@ -251,17 +257,35 @@ ESTATEIN_RCLONE_SYNC_FLAGS=(
   --checkers 16
 )
 
-echo "Syncing Estatein Core to ${ESTATEIN_WASMER_APP}..."
+echo "Staging Estatein Core for ${ESTATEIN_WASMER_APP}..."
 "${ESTATEIN_RCLONE_BIN}" sync \
   "${ESTATEIN_DEPLOY_DIR}/release/estatein-core" \
+  "${ESTATEIN_REMOTE_STAGE_ROOT}estatein-core" \
+  "${ESTATEIN_RCLONE_SYNC_FLAGS[@]}"
+
+echo "Staging the Estatein theme for ${ESTATEIN_WASMER_APP}..."
+"${ESTATEIN_RCLONE_BIN}" sync \
+  "${ESTATEIN_DEPLOY_DIR}/release/estatein" \
+  "${ESTATEIN_REMOTE_STAGE_ROOT}estatein" \
+  "${ESTATEIN_RCLONE_SYNC_FLAGS[@]}"
+
+echo "Publishing complete Estatein Core files..."
+"${ESTATEIN_RCLONE_BIN}" sync \
+  "${ESTATEIN_REMOTE_STAGE_ROOT}estatein-core" \
   "${ESTATEIN_REMOTE_ROOT}plugins/estatein-core" \
   "${ESTATEIN_RCLONE_SYNC_FLAGS[@]}"
 
-echo "Syncing the Estatein theme to ${ESTATEIN_WASMER_APP}..."
+echo "Publishing complete Estatein theme files..."
 "${ESTATEIN_RCLONE_BIN}" sync \
-  "${ESTATEIN_DEPLOY_DIR}/release/estatein" \
+  "${ESTATEIN_REMOTE_STAGE_ROOT}estatein" \
   "${ESTATEIN_REMOTE_ROOT}themes/estatein" \
   "${ESTATEIN_RCLONE_SYNC_FLAGS[@]}"
+
+if ! "${ESTATEIN_RCLONE_BIN}" purge \
+  "${ESTATEIN_REMOTE_STAGE_ROOT}" \
+  --config "${ESTATEIN_RCLONE_CONFIG}"; then
+  echo "Warning: deployed successfully but could not remove the temporary staging files" >&2
+fi
 
 echo "Waiting for the public preview to serve the deployed theme..."
 curl \

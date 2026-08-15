@@ -30,10 +30,10 @@ On a push to `main`, the dependent `deploy-wasmer-preview` job then:
 2. installs `jq` and `rclone` from the GitHub-hosted Ubuntu package repositories;
 3. requests current per-volume S3 credentials from Wasmer using `WASMER_TOKEN`, enabling S3 only for `/app/wp-content` if the app has never initialized remote volume access;
 4. requires exactly one `/app/wp-content` mapping and targets its validated Wasmer `volumeId` bucket;
-5. syncs only the packaged Estatein plugin and theme directories;
+5. stages only the packaged Estatein plugin and theme under a hidden, commit-specific volume prefix, then server-copies complete files into the two active directories;
 6. checks the public theme stylesheet and site URL over HTTPS.
 
-Concurrent deployments are serialized. The Wasmer API token is provided to `curl` through a permission-restricted temporary configuration rather than a command-line argument. Credential initialization output and the generated rclone configuration live only in that temporary directory, never appear in the job log, and are deleted when the deployment step exits. Existing credentials are not rotated during normal deployments.
+Concurrent deployments are serialized. Staging keeps the PHP runtime from reading partially uploaded plugin or theme files; the temporary volume prefix is purged after publishing. The Wasmer API token is provided to `curl` through a permission-restricted temporary configuration rather than a command-line argument. Credential initialization output and the generated rclone configuration live only in that temporary directory, never appear in the job log, and are deleted when the deployment step exits. Existing credentials are not rotated during normal deployments.
 
 ## One-time GitHub setup
 
