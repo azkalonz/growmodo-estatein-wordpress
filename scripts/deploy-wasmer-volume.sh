@@ -95,7 +95,7 @@ estatein_query_volume() {
     --arg owner "${estatein_owner}" \
     --arg name "${estatein_app_name}" \
     '{
-      query: "query EstateinDeployVolumes($owner: String!, $name: String!) { getDeployApp(owner: $owner, name: $name) { volumes(first: 100) { edges { node { id mountPath s3Enabled s3 { accessKey secretKey endpoint } } } } } }",
+      query: "query EstateinDeployVolumes($owner: String!, $name: String!) { getDeployApp(owner: $owner, name: $name) { volumes(first: 100) { edges { node { id volumeId mountPath s3Enabled s3 { accessKey secretKey endpoint } } } } } }",
       variables: {owner: $owner, name: $name}
     }' >"${ESTATEIN_GRAPHQL_REQUEST}"
   estatein_post_graphql
@@ -204,7 +204,12 @@ if [[ -z "${ESTATEIN_VOLUME_JSON}" ]]; then
 fi
 
 ESTATEIN_VOLUME_ID="$(jq -er '.id' <<<"${ESTATEIN_VOLUME_JSON}")"
+ESTATEIN_VOLUME_BUCKET="$(jq -er '.volumeId' <<<"${ESTATEIN_VOLUME_JSON}")"
 ESTATEIN_S3_ENABLED="$(jq -r '.s3Enabled' <<<"${ESTATEIN_VOLUME_JSON}")"
+if [[ ! "${ESTATEIN_VOLUME_BUCKET}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Wasmer returned an unsafe volume bucket identifier; nothing was changed" >&2
+  exit 1
+fi
 if [[ "${ESTATEIN_S3_ENABLED}" != 'true' ]]; then
   echo "Initializing S3 access for the deployment volume..."
   estatein_enable_volume_s3 "${ESTATEIN_VOLUME_ID}"
@@ -238,45 +243,12 @@ chmod 600 "${ESTATEIN_RCLONE_CONFIG}"
 ESTATEIN_REMOTE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
   --config "${ESTATEIN_RCLONE_CONFIG}" \
   --dirs-only \
-  --recursive \
-  --max-depth 4 \
-  "${ESTATEIN_RCLONE_REMOTE}:")"
-
-ESTATEIN_REMOTE_ROOT_CANDIDATES="$(awk '
-  { directories[$0] = 1 }
-  END {
-    for (directory in directories) {
-      if (directory ~ /(^|\/)plugins\/$/) {
-        prefix = directory
-        sub(/plugins\/$/, "", prefix)
-        if ((prefix "themes/") in directories) {
-          if (prefix == "") {
-            print "."
-          } else {
-            print prefix
-          }
-        }
-      }
-    }
-  }
-' <<<"${ESTATEIN_REMOTE_DIRS}")"
-ESTATEIN_REMOTE_ROOT_COUNT="$(sed '/^$/d' <<<"${ESTATEIN_REMOTE_ROOT_CANDIDATES}" | wc -l | tr -d ' ')"
-ESTATEIN_REMOTE_PATH_PREFIX="$(sed -n '1p' <<<"${ESTATEIN_REMOTE_ROOT_CANDIDATES}")"
-
-if [[ "${ESTATEIN_REMOTE_ROOT_COUNT}" != '1' ]]; then
-  echo "Wasmer did not expose exactly one WordPress volume root; nothing was changed" >&2
+  "${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_VOLUME_BUCKET}/")"
+if ! grep -Fxq 'plugins/' <<<"${ESTATEIN_REMOTE_DIRS}" || ! grep -Fxq 'themes/' <<<"${ESTATEIN_REMOTE_DIRS}"; then
+  echo "The mapped Wasmer bucket is not the expected WordPress volume; nothing was changed" >&2
   exit 1
 fi
-
-if [[ "${ESTATEIN_REMOTE_PATH_PREFIX}" == '.' ]]; then
-  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:"
-else
-  if [[ ! "${ESTATEIN_REMOTE_PATH_PREFIX}" =~ ^([a-zA-Z0-9._-]+/)+$ || "${ESTATEIN_REMOTE_PATH_PREFIX}" == *'../'* ]]; then
-    echo "Wasmer returned an unsafe WordPress volume path; nothing was changed" >&2
-    exit 1
-  fi
-  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_REMOTE_PATH_PREFIX}"
-fi
+ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_VOLUME_BUCKET}/"
 
 ESTATEIN_RCLONE_SYNC_FLAGS=(
   --config "${ESTATEIN_RCLONE_CONFIG}"
