@@ -2,7 +2,7 @@ SHELL := /bin/bash
 ENV_FILE ?= .env
 COMPOSE := docker compose --env-file $(ENV_FILE)
 
-.PHONY: help env config up install seed export package audit lint lint-php lint-js lint-css phpcs test test-e2e screenshots lighthouse qa-plugins logs down
+.PHONY: help env config up install seed export package wasmer audit lint lint-php lint-js lint-css phpcs test test-e2e screenshots lighthouse qa-plugins logs down
 
 help:
 	@echo "Estatein development commands"
@@ -12,6 +12,7 @@ help:
 	@echo "  make seed         Re-run the idempotent fixture"
 	@echo "  make export       Export an equivalent WXR demo-content file"
 	@echo "  make package      Build and verify installable theme/plugin ZIPs"
+	@echo "  make wasmer       Build and validate the complete Wasmer handoff"
 	@echo "  make audit        Check locked PHP and Node dependencies for advisories"
 	@echo "  make lint         Run PHP, JavaScript, and CSS static checks"
 	@echo "  make test-e2e     Run Playwright in Chromium, Firefox, and WebKit"
@@ -39,6 +40,9 @@ export:
 
 package:
 	@./scripts/package.sh
+
+wasmer: package
+	@./scripts/check-wasmer-readiness.sh
 
 audit:
 	@composer audit --locked

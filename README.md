@@ -6,7 +6,7 @@ A responsive, content-managed implementation of the six-page **Estatein** real-e
 
 Repository: <https://github.com/azkalonz/growmodo-estatein-wordpress>
 
-Live demo: supplied after the repository owner completes the [Wasmer deployment checklist](docs/WASMER_DEPLOYMENT.md).
+Live demo: [estatein-preview.wasmer.app](https://estatein-preview.wasmer.app/)
 
 ## What is included
 
@@ -60,7 +60,9 @@ See [TESTING.md](TESTING.md) for the complete matrix and manual browser checklis
 
 Editors manage the principal pages through normal WordPress pages, properties under **Properties**, team members under **Team**, and saved form submissions under the private **Inquiries** screen. Menus and core site settings use standard WordPress controls. The fixture preserves the Estatein demo copy for design fidelity; it is sample content, not a claim about a real brokerage.
 
-For delivery, run `make export && make package`. The production ZIP keeps referenced runtime assets and omits only the unreferenced raw Figma capture archive, which remains committed for traceability. Install `dist/estatein-core.zip`, `dist/estatein-theme.zip`, and ACF Free 6.8.7 on the target WordPress site, import the WXR file, activate the theme, save permalinks, and complete [the Wasmer checklist](docs/WASMER_DEPLOYMENT.md). Production email requires host SMTP configuration; saved inquiries remain authoritative.
+For delivery, run `make export && make wasmer`. The production ZIP keeps referenced runtime assets and omits only the unreferenced raw Figma capture archive, which remains committed for traceability. Initial database content, theme/plugin activation, menus, and permalinks follow [the Wasmer checklist](docs/WASMER_DEPLOYMENT.md). Production email requires host SMTP configuration; saved inquiries remain authoritative.
+
+After the one-time `WASMER_TOKEN` secret is configured, every successful push to `main` automatically syncs the verified Estatein theme and companion plugin to [estatein-preview.wasmer.app](https://estatein-preview.wasmer.app/). No recurring WordPress ZIP upload is required. GitHub also retains the exact `wasmer-wordpress-<commit>` handoff for 30 days. The workflow does not touch the database, media, unrelated plugins, or WordPress core; Wasmer's managed Starter continues to supply the PHP/WordPress runtime, database integration, platform plugin, and persistent `wp-content` volume.
 
 ## Attribution
 
