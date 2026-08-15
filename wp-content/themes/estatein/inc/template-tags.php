@@ -337,7 +337,9 @@ function estatein_menu_or_fallback( $location, $fallback ) {
 
 	echo '<ul class="estatein-menu estatein-menu--' . esc_attr( sanitize_html_class( $location ) ) . '">';
 	foreach ( $fallback as $item ) {
-		echo '<li><a href="' . esc_url( $item['url'] ) . '">' . esc_html( $item['label'] ) . '</a></li>';
+		$item_url   = isset( $item['url'] ) ? $item['url'] : '';
+		$item_label = isset( $item['label'] ) ? $item['label'] : '';
+		printf( '<li><a href="%1$s">%2$s</a></li>', esc_url( $item_url ), esc_html( $item_label ) );
 	}
 	echo '</ul>';
 }
