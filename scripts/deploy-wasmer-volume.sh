@@ -5,16 +5,14 @@ umask 077
 ESTATEIN_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ESTATEIN_DIST_DIR="${ESTATEIN_DIST_DIR:-${ESTATEIN_ROOT_DIR}/dist}"
 ESTATEIN_WASMER_APP="${ESTATEIN_WASMER_APP:-azkalonz/estatein-preview}"
-ESTATEIN_WASMER_VOLUME="${ESTATEIN_WASMER_VOLUME:-wp-content}"
 ESTATEIN_WASMER_MOUNT="${ESTATEIN_WASMER_MOUNT:-/app/wp-content}"
 ESTATEIN_BASE_URL="${ESTATEIN_BASE_URL:-https://estatein-preview.wasmer.app}"
-ESTATEIN_WASMER_BIN="${ESTATEIN_WASMER_BIN:-wasmer}"
 ESTATEIN_RCLONE_BIN="${ESTATEIN_RCLONE_BIN:-rclone}"
 ESTATEIN_WASMER_GRAPHQL_ENDPOINT="https://registry.wasmer.io/graphql"
 
 : "${WASMER_TOKEN:?WASMER_TOKEN must contain a Wasmer access token}"
 
-for required_command in "${ESTATEIN_WASMER_BIN}" "${ESTATEIN_RCLONE_BIN}" unzip curl jq shasum; do
+for required_command in "${ESTATEIN_RCLONE_BIN}" unzip curl jq shasum; do
   if ! command -v "${required_command}" >/dev/null 2>&1; then
     echo "Missing required deployment command: ${required_command}" >&2
     exit 1
@@ -23,11 +21,6 @@ done
 
 if [[ ! "${ESTATEIN_WASMER_APP}" =~ ^[a-z0-9-]+/[a-z0-9-]+$ ]]; then
   echo "Invalid Wasmer app identifier: ${ESTATEIN_WASMER_APP}" >&2
-  exit 1
-fi
-
-if [[ ! "${ESTATEIN_WASMER_VOLUME}" =~ ^[a-z0-9-]+$ ]]; then
-  echo "Invalid Wasmer volume name: ${ESTATEIN_WASMER_VOLUME}" >&2
   exit 1
 fi
 
@@ -61,11 +54,9 @@ done
 
 ESTATEIN_DEPLOY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/estatein-wasmer-deploy.XXXXXX")"
 ESTATEIN_RCLONE_CONFIG="${ESTATEIN_DEPLOY_DIR}/rclone.conf"
-ESTATEIN_CREDENTIAL_ERROR="${ESTATEIN_DEPLOY_DIR}/credentials-error.log"
 ESTATEIN_GRAPHQL_CURL_CONFIG="${ESTATEIN_DEPLOY_DIR}/graphql-curl.conf"
 ESTATEIN_GRAPHQL_REQUEST="${ESTATEIN_DEPLOY_DIR}/graphql-request.json"
 ESTATEIN_GRAPHQL_RESPONSE="${ESTATEIN_DEPLOY_DIR}/graphql-response.json"
-ESTATEIN_ROTATION_OUTPUT="${ESTATEIN_DEPLOY_DIR}/rotation-output.log"
 cleanup() {
   rm -rf "${ESTATEIN_DEPLOY_DIR}"
 }
@@ -83,15 +74,6 @@ for release_dir in \
   fi
 done
 
-echo "Requesting temporary volume credentials for ${ESTATEIN_WASMER_APP}..."
-estatein_fetch_volume_credentials() {
-  "${ESTATEIN_WASMER_BIN}" app volumes credentials \
-    "${ESTATEIN_WASMER_APP}" \
-    --format=rclone \
-    >"${ESTATEIN_RCLONE_CONFIG}" \
-    2>"${ESTATEIN_CREDENTIAL_ERROR}"
-}
-
 estatein_post_graphql() {
   curl \
     --config "${ESTATEIN_GRAPHQL_CURL_CONFIG}" \
@@ -105,69 +87,32 @@ estatein_post_graphql() {
   fi
 }
 
-estatein_enable_volume_s3() {
+estatein_query_volume() {
   local estatein_owner="${ESTATEIN_WASMER_APP%%/*}"
   local estatein_app_name="${ESTATEIN_WASMER_APP#*/}"
-  local estatein_volume_id
-  local estatein_s3_enabled
-
-  # Wasmer CLI 7.2.1 predates `app volume enable-s3`, so use the same
-  # updateVolume mutation as the newer CLI when bootstrapping a volume once.
-  printf '%s\n' \
-    'fail' \
-    'silent' \
-    'show-error' \
-    'retry = 3' \
-    'retry-all-errors' \
-    'connect-timeout = 15' \
-    'max-time = 60' \
-    "url = \"${ESTATEIN_WASMER_GRAPHQL_ENDPOINT}\"" \
-    'header = "Content-Type: application/json"' \
-    "header = \"Authorization: Bearer ${WASMER_TOKEN}\"" \
-    >"${ESTATEIN_GRAPHQL_CURL_CONFIG}"
 
   jq -n \
     --arg owner "${estatein_owner}" \
     --arg name "${estatein_app_name}" \
     '{
-      query: "query EstateinDeployVolumes($owner: String!, $name: String!) { getDeployApp(owner: $owner, name: $name) { volumes(first: 100) { edges { node { id mountPath s3Enabled } } } } }",
+      query: "query EstateinDeployVolumes($owner: String!, $name: String!) { getDeployApp(owner: $owner, name: $name) { volumes(first: 100) { edges { node { id mountPath s3Enabled s3 { accessKey secretKey endpoint } } } } } }",
       variables: {owner: $owner, name: $name}
     }' >"${ESTATEIN_GRAPHQL_REQUEST}"
   estatein_post_graphql
+}
 
-  estatein_volume_id="$(
-    jq -er \
-      --arg mount "${ESTATEIN_WASMER_MOUNT}" \
-      '[.data.getDeployApp.volumes.edges[]?.node | select(.mountPath == $mount)] | if length == 1 then .[0].id else empty end' \
-      "${ESTATEIN_GRAPHQL_RESPONSE}"
-  )"
-  estatein_s3_enabled="$(
-    jq -r \
-      --arg mount "${ESTATEIN_WASMER_MOUNT}" \
-      '.data.getDeployApp.volumes.edges[]?.node | select(.mountPath == $mount) | .s3Enabled' \
-      "${ESTATEIN_GRAPHQL_RESPONSE}"
-  )"
+estatein_select_volume() {
+  jq -ec \
+    --arg mount "${ESTATEIN_WASMER_MOUNT}" \
+    '[.data.getDeployApp.volumes.edges[]?.node | select(.mountPath == $mount)] | if length == 1 then .[0] else empty end' \
+    "${ESTATEIN_GRAPHQL_RESPONSE}"
+}
 
-  if [[ -z "${estatein_volume_id}" ]]; then
-    echo "Wasmer did not return exactly one volume mounted at ${ESTATEIN_WASMER_MOUNT}; nothing was changed" >&2
-    return 1
-  fi
+estatein_enable_volume_s3() {
+  local estatein_volume_id="$1"
 
-  if [[ "${estatein_s3_enabled}" == 'true' ]]; then
-    echo "S3 is already enabled; rotating missing credentials once..."
-    if ! "${ESTATEIN_WASMER_BIN}" app volumes rotate-secrets \
-      "${ESTATEIN_WASMER_APP}" \
-      --format=json \
-      --quiet \
-      >"${ESTATEIN_ROTATION_OUTPUT}" \
-      2>&1; then
-      echo "Wasmer could not recover the missing volume credentials; nothing was changed" >&2
-      grep -Eiv '(access[_ -]?key|secret|token|password)' "${ESTATEIN_ROTATION_OUTPUT}" | head -n 10 >&2 || true
-      return 1
-    fi
-    return 0
-  fi
-
+  # Wasmer CLI 7.2.1 predates `app volume enable-s3`, so use the same
+  # updateVolume mutation as the current CLI when bootstrapping a volume once.
   jq -n \
     --arg id "${estatein_volume_id}" \
     '{
@@ -184,37 +129,111 @@ estatein_enable_volume_s3() {
   echo "Enabled S3 access for ${ESTATEIN_WASMER_MOUNT}."
 }
 
-if ! estatein_fetch_volume_credentials; then
-  if ! grep -Fq 'app does not have S3 credentials' "${ESTATEIN_CREDENTIAL_ERROR}"; then
-    echo "Wasmer could not provide volume credentials; nothing was changed" >&2
-    exit 1
+estatein_rotate_volume_credentials() {
+  local estatein_volume_id="$1"
+
+  jq -n \
+    --arg id "${estatein_volume_id}" \
+    '{
+      query: "mutation EstateinRotateVolumeS3($id: ID!) { rotateS3Credentials(input: {id: $id}) { accessKey secretKey endpoint success } }",
+      variables: {id: $id}
+    }' >"${ESTATEIN_GRAPHQL_REQUEST}"
+  estatein_post_graphql
+
+  if ! jq -e '.data.rotateS3Credentials.success == true' "${ESTATEIN_GRAPHQL_RESPONSE}" >/dev/null; then
+    echo "Wasmer could not initialize per-volume credentials; nothing was changed" >&2
+    return 1
   fi
 
-  echo "Initializing S3 access for the deployment volume..."
-  estatein_enable_volume_s3
+  jq -ec '.data.rotateS3Credentials | {accessKey, secretKey, endpoint}' "${ESTATEIN_GRAPHQL_RESPONSE}"
+}
 
-  ESTATEIN_CREDENTIALS_READY=false
+estatein_write_rclone_config() {
+  local estatein_credentials="$1"
+  local estatein_app_name="${ESTATEIN_WASMER_APP#*/}"
+  local estatein_volume_slug="${ESTATEIN_WASMER_MOUNT#/}"
+  local estatein_access_key
+  local estatein_secret_key
+  local estatein_endpoint
+
+  estatein_volume_slug="${estatein_volume_slug//\//-}"
+  ESTATEIN_RCLONE_REMOTE="edge-${estatein_app_name}-${estatein_volume_slug}"
+  estatein_access_key="$(jq -er '.accessKey' <<<"${estatein_credentials}")"
+  estatein_secret_key="$(jq -er '.secretKey' <<<"${estatein_credentials}")"
+  estatein_endpoint="$(jq -er '.endpoint' <<<"${estatein_credentials}")"
+
+  if [[ -z "${estatein_access_key}" || -z "${estatein_secret_key}" || ! "${estatein_endpoint}" =~ ^https://[^[:space:]]+$ ]]; then
+    echo "Wasmer returned invalid per-volume credentials; nothing was changed" >&2
+    return 1
+  fi
+  if [[ "${estatein_access_key}" == *$'\n'* || "${estatein_secret_key}" == *$'\n'* || "${estatein_endpoint}" == *$'\n'* ]]; then
+    echo "Wasmer returned unsafe credential formatting; nothing was changed" >&2
+    return 1
+  fi
+
+  printf '%s\n' \
+    "[${ESTATEIN_RCLONE_REMOTE}]" \
+    'type = s3' \
+    'provider = Other' \
+    'acl = private' \
+    "access_key_id = ${estatein_access_key}" \
+    "secret_access_key = ${estatein_secret_key}" \
+    "endpoint = ${estatein_endpoint}" \
+    >"${ESTATEIN_RCLONE_CONFIG}"
+}
+
+printf '%s\n' \
+  'fail' \
+  'silent' \
+  'show-error' \
+  'retry = 3' \
+  'retry-all-errors' \
+  'connect-timeout = 15' \
+  'max-time = 60' \
+  "url = \"${ESTATEIN_WASMER_GRAPHQL_ENDPOINT}\"" \
+  'header = "Content-Type: application/json"' \
+  "header = \"Authorization: Bearer ${WASMER_TOKEN}\"" \
+  >"${ESTATEIN_GRAPHQL_CURL_CONFIG}"
+
+echo "Requesting per-volume credentials for ${ESTATEIN_WASMER_APP}..."
+estatein_query_volume
+ESTATEIN_VOLUME_JSON="$(estatein_select_volume)"
+if [[ -z "${ESTATEIN_VOLUME_JSON}" ]]; then
+  echo "Wasmer did not return exactly one volume mounted at ${ESTATEIN_WASMER_MOUNT}; nothing was changed" >&2
+  exit 1
+fi
+
+ESTATEIN_VOLUME_ID="$(jq -er '.id' <<<"${ESTATEIN_VOLUME_JSON}")"
+ESTATEIN_S3_ENABLED="$(jq -r '.s3Enabled' <<<"${ESTATEIN_VOLUME_JSON}")"
+if [[ "${ESTATEIN_S3_ENABLED}" != 'true' ]]; then
+  echo "Initializing S3 access for the deployment volume..."
+  estatein_enable_volume_s3 "${ESTATEIN_VOLUME_ID}"
+fi
+
+ESTATEIN_CREDENTIALS_JSON="$(jq -ec '.s3 // empty' <<<"${ESTATEIN_VOLUME_JSON}" || true)"
+if [[ -z "${ESTATEIN_CREDENTIALS_JSON}" ]]; then
   for estatein_attempt in 1 2 3 4 5; do
-    if estatein_fetch_volume_credentials; then
-      ESTATEIN_CREDENTIALS_READY=true
+    estatein_query_volume
+    ESTATEIN_VOLUME_JSON="$(estatein_select_volume)"
+    ESTATEIN_CREDENTIALS_JSON="$(jq -ec '.s3 // empty' <<<"${ESTATEIN_VOLUME_JSON}" || true)"
+    if [[ -n "${ESTATEIN_CREDENTIALS_JSON}" ]]; then
       break
     fi
     sleep 2
   done
-  if [[ "${ESTATEIN_CREDENTIALS_READY}" != 'true' ]]; then
-    echo "Wasmer did not return volume credentials after initialization; nothing was changed" >&2
-    exit 1
-  fi
 fi
-chmod 600 "${ESTATEIN_RCLONE_CONFIG}"
 
-ESTATEIN_RCLONE_REMOTE="$(
-  sed -n 's/^\[\([^]]*\)\]$/\1/p' "${ESTATEIN_RCLONE_CONFIG}" | head -n 1
-)"
-if [[ -z "${ESTATEIN_RCLONE_REMOTE}" ]]; then
-  echo "Wasmer did not return a valid rclone configuration" >&2
+if [[ -z "${ESTATEIN_CREDENTIALS_JSON}" && "${ESTATEIN_S3_ENABLED}" == 'true' ]]; then
+  echo "S3 is enabled but credentials are missing; rotating this volume once..."
+  ESTATEIN_CREDENTIALS_JSON="$(estatein_rotate_volume_credentials "${ESTATEIN_VOLUME_ID}")"
+fi
+if [[ -z "${ESTATEIN_CREDENTIALS_JSON}" ]]; then
+  echo "Wasmer did not return per-volume credentials after initialization; nothing was changed" >&2
   exit 1
 fi
+
+estatein_write_rclone_config "${ESTATEIN_CREDENTIALS_JSON}"
+chmod 600 "${ESTATEIN_RCLONE_CONFIG}"
 
 ESTATEIN_REMOTE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
   --config "${ESTATEIN_RCLONE_CONFIG}" \
