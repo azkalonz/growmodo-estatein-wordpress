@@ -93,15 +93,18 @@ $faqs = array(
 			</ul>
 		</div>
 			<a class="home-hero__round-link" href="<?php echo esc_url( estatein_page_url( 'properties' ) ); ?>">
-				<svg viewBox="0 0 140 140" aria-hidden="true" focusable="false">
+				<svg class="home-hero__round-copy" viewBox="0 0 140 140" aria-hidden="true" focusable="false">
 					<defs>
-						<path id="estatein-roundel-path" d="M 70,70 m -48,0 a 48,48 0 1,1 96,0 a 48,48 0 1,1 -96,0" />
+						<path id="estatein-roundel-path" d="M 70,70 m -51,0 a 51,51 0 1,1 102,0 a 51,51 0 1,1 -102,0" />
 					</defs>
-					<text class="home-hero__round-text">
-						<textPath href="#estatein-roundel-path" startOffset="2%">DISCOVER YOUR DREAM PROPERTY • ESTATEIN •</textPath>
+					<text class="home-hero__round-text" transform="rotate(-45 70 70)">
+						<textPath href="#estatein-roundel-path" startOffset="0" textLength="250" lengthAdjust="spacing">Discover Your Dream Property</textPath>
 					</text>
-					<path class="home-hero__round-arrow" d="M49 91 91 49M91 80V49H60" />
 				</svg>
+				<span class="home-hero__round-sparkle" aria-hidden="true">✨</span>
+				<span class="home-hero__round-center" aria-hidden="true">
+					<img src="<?php echo esc_url( estatein_asset_uri( 'icons/hero-discover.svg' ) ); ?>" alt="" width="34" height="34">
+				</span>
 				<span class="screen-reader-text"><?php esc_html_e( 'Discover your dream property', 'estatein' ); ?></span>
 			</a>
 	</section>

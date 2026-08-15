@@ -30,6 +30,12 @@ rm -f \
     '*/node_modules/*' \
     'estatein/assets/icons/figma/*' \
     'estatein/assets/images/figma/*'
+
+  # These two exact Figma exports are runtime CTA assets, so add them back after
+  # excluding the rest of the design-reference inventory from the release ZIP.
+  zip -q -X "${ESTATEIN_DIST_DIR}/estatein-theme.zip" \
+    estatein/assets/icons/figma/about-03.svg \
+    estatein/assets/icons/figma/about-11.svg
 )
 
 (

@@ -464,8 +464,10 @@ p {
 
 .section-heading__spark {
   width: 46px;
-  height: 21px;
+  height: 20px;
+  margin-left: -8px;
   margin-bottom: 8px;
+  display: block;
   object-fit: contain;
   object-position: left center;
 }
@@ -506,7 +508,9 @@ p {
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #211e2f url("../images/hero-lines.svg") center/cover no-repeat;
+  background:
+    url("../images/hero-lines.svg") center/cover no-repeat,
+    linear-gradient(100deg, #191919 0%, #1d1b27 48%, #211e2f 100%);
 }
 
 .home-hero__media picture,
@@ -558,20 +562,46 @@ p {
   height: 100%;
 }
 
-.home-hero__round-text {
-  fill: var(--color-text-soft);
-  font-family: "Urbanist", sans-serif;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .12em;
+.home-hero__round-copy {
+  pointer-events: none;
 }
 
-.home-hero__round-arrow {
-  fill: none;
-  stroke: var(--color-white);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
+.home-hero__round-text {
+  fill: var(--color-white);
+  font-family: "Urbanist", sans-serif;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .08em;
+}
+
+.home-hero__round-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 46%;
+  height: 46%;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.home-hero__round-center img {
+  width: 42%;
+  height: 42%;
+}
+
+.home-hero__round-sparkle {
+  position: absolute;
+  z-index: 2;
+  bottom: 3%;
+  left: 50%;
+  padding-inline: 3px;
+  background: var(--color-bg);
+  font-size: 13px;
+  line-height: 1;
+  transform: translateX(-50%);
 }
 
 .home-hero__round-link:hover {
@@ -995,20 +1025,24 @@ p {
 .journey-cta__decoration {
   position: absolute;
   z-index: 0;
-  width: 55%;
-  height: 100%;
-  object-fit: cover;
-  opacity: .3;
+  width: auto;
+  max-width: none;
+  height: auto;
 }
 
 .journey-cta__decoration--left {
-  bottom: 0;
-  left: -18%;
+  top: 9px;
+  left: -140px;
+  width: 522px;
+  height: 284px;
+  transform: rotate(90deg);
 }
 
 .journey-cta__decoration--right {
-  right: -20%;
-  bottom: 0;
+  right: -50px;
+  bottom: -51px;
+  width: 398px;
+  height: 217px;
   transform: scaleX(-1);
 }
 
@@ -1292,13 +1326,14 @@ p {
 
 .team-card {
   position: relative;
-  padding: 16px;
+  padding: 20px;
   text-align: center;
 }
 
 .team-card__image {
   width: 100%;
-  aspect-ratio: 1.2;
+  height: auto;
+  aspect-ratio: 1.257;
   border-radius: var(--radius-md);
   object-fit: cover;
   object-position: center top;
@@ -1307,45 +1342,49 @@ p {
 .team-card__social {
   position: relative;
   display: grid;
-  width: 44px;
-  height: 34px;
+  width: 76px;
+  height: 50px;
   place-items: center;
-  margin: -17px auto 12px;
+  margin: -25px auto 22px;
   border-radius: 999px;
   background: var(--color-primary);
 }
 
 .team-card__social .estatein-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 .team-card h3 {
-  margin-bottom: 2px;
-  font-size: 18px;
+  margin-bottom: 8px;
+  font-size: 20px;
 }
 
 .team-card > p {
-  margin-bottom: 16px;
-  font-size: 14px;
+  margin-bottom: 24px;
+  font-size: 16px;
 }
 
 .team-card__message {
   display: flex;
-  min-height: 48px;
+  min-height: 64px;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 9px 8px 14px;
+  padding: 8px 9px 8px 20px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface);
-  font-size: 13px;
+  font-size: 16px;
   text-decoration: none;
 }
 
 .team-card__message .estatein-icon {
-  width: 32px;
-  height: 32px;
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: 12px;
+  border-radius: 50%;
+  background: var(--color-primary);
 }
 
 .client-card {
@@ -2362,8 +2401,9 @@ p {
   }
 
   .section-heading__spark {
-    width: 68px;
-    height: 30px;
+    width: 55px;
+    height: 24px;
+    margin-left: -10px;
     margin-bottom: 10px;
   }
 
@@ -2495,6 +2535,22 @@ p {
   .journey-cta,
   .journey-cta__inner {
     min-height: 310px;
+  }
+
+  .journey-cta__decoration--left {
+    top: auto;
+    bottom: -1px;
+    left: 0;
+    width: 474px;
+    height: 258px;
+    transform: none;
+  }
+
+  .journey-cta__decoration--right {
+    right: -14px;
+    bottom: -22px;
+    width: 569px;
+    height: 310px;
   }
 
   .journey-cta__inner {
@@ -2810,6 +2866,12 @@ p {
 }
 
 @media (width >= 1600px) {
+  .section-heading__spark {
+    width: 68px;
+    height: 30px;
+    margin-left: -20px;
+  }
+
   :root {
     --shell-gutter: clamp(120px, 8.4375vw, 162px);
     --section-space: 120px;
@@ -2840,6 +2902,52 @@ p {
     top: 135px;
     width: 175px;
     height: 175px;
+  }
+
+  .team-grid {
+    gap: 30px;
+  }
+
+  .team-card {
+    padding: 30px;
+  }
+
+  .team-card__social {
+    height: 52px;
+    margin-top: -26px;
+  }
+
+  .team-card__social .estatein-icon {
+    width: 25px;
+    height: 25px;
+  }
+
+  .team-card h3 {
+    font-size: 24px;
+  }
+
+  .team-card > p,
+  .team-card__message {
+    font-size: 18px;
+  }
+
+  .journey-cta,
+  .journey-cta__inner {
+    min-height: 367px;
+  }
+
+  .journey-cta__decoration--left {
+    bottom: -1px;
+    left: -20px;
+    width: 566px;
+    height: 308px;
+  }
+
+  .journey-cta__decoration--right {
+    right: -92px;
+    bottom: -64px;
+    width: 725px;
+    height: 394px;
   }
 
   .metrics strong {

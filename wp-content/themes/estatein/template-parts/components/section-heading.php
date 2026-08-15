@@ -16,7 +16,7 @@ $modifier      = $args['modifier'] ?? '';
 ?>
 <header class="section-heading <?php echo esc_attr( $modifier ? 'section-heading--' . sanitize_html_class( $modifier ) : '' ); ?>">
 	<div class="section-heading__content">
-		<img class="section-heading__spark" src="<?php echo esc_url( estatein_asset_uri( 'images/decor/spark.svg' ) ); ?>" alt="" width="68" height="30" loading="lazy">
+		<img class="section-heading__spark" src="<?php echo esc_url( estatein_asset_uri( 'images/decor/spark.svg' ) ); ?>" alt="" width="55" height="24" loading="lazy">
 		<h2<?php echo $heading_id ? ' id="' . esc_attr( $heading_id ) . '"' : ''; ?>><?php echo esc_html( $heading_title ); ?></h2>
 		<?php if ( $heading_copy ) : ?>
 			<p><?php echo esc_html( $heading_copy ); ?></p>

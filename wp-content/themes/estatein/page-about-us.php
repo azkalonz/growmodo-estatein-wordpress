@@ -121,7 +121,7 @@ $clients = array(
 <main id="primary" class="site-main about-page">
 	<section id="journey" class="about-hero site-shell" aria-labelledby="about-title">
 		<div class="about-hero__content">
-			<img class="section-heading__spark" src="<?php echo esc_url( estatein_asset_uri( 'images/decor/spark.svg' ) ); ?>" alt="" width="68" height="30">
+			<img class="section-heading__spark" src="<?php echo esc_url( estatein_asset_uri( 'images/decor/spark.svg' ) ); ?>" alt="" width="55" height="24">
 			<h1 id="about-title"><?php esc_html_e( 'Our Journey', 'estatein' ); ?></h1>
 			<p><?php esc_html_e( "Our story is one of continuous growth and evolution. We started as a small team with big dreams, determined to create a real estate platform that transcended the ordinary. Over the years, we've expanded our reach, forged valuable partnerships, and gained the trust of countless clients.", 'estatein' ); ?></p>
 			<ul class="metrics" aria-label="<?php esc_attr_e( 'Estatein at a glance', 'estatein' ); ?>">
@@ -240,7 +240,7 @@ $clients = array(
 						<?php if ( has_post_thumbnail() ) : ?>
 							<?php
 							the_post_thumbnail(
-								'estatein-team',
+								'full',
 								array(
 									'class'   => 'team-card__image',
 									'loading' => 'lazy',
@@ -252,7 +252,7 @@ $clients = array(
 						<a class="team-card__social" href="<?php echo esc_url( $member_social ? $member_social : 'https://x.com/' ); ?>" target="_blank" rel="noopener noreferrer"><span class="screen-reader-text"><?php /* translators: %s: Team member name. */ printf( esc_html__( '%s on X', 'estatein' ), esc_html( get_the_title() ) ); ?></span><?php estatein_icon( 'x' ); ?></a>
 						<h3><?php the_title(); ?></h3>
 						<p><?php echo esc_html( $member_role ? $member_role : __( 'Estatein Advisor', 'estatein' ) ); ?></p>
-						<a class="team-card__message" href="mailto:<?php echo esc_attr( sanitize_email( $member_email ? $member_email : 'info@estatein.com' ) ); ?>"><span><?php esc_html_e( 'Say Hello', 'estatein' ); ?></span><?php estatein_icon( 'send' ); ?></a>
+						<a class="team-card__message" href="mailto:<?php echo esc_attr( sanitize_email( $member_email ? $member_email : 'info@estatein.com' ) ); ?>"><span><?php esc_html_e( 'Say Hello 👋', 'estatein' ); ?></span><?php estatein_icon( 'send' ); ?></a>
 					</article>
 				<?php endwhile; ?>
 				<?php wp_reset_postdata(); ?>
@@ -263,7 +263,7 @@ $clients = array(
 						<a class="team-card__social" href="https://x.com/" target="_blank" rel="noopener noreferrer"><span class="screen-reader-text"><?php echo esc_html( $person['name'] . ' on X' ); ?></span><?php estatein_icon( 'x' ); ?></a>
 						<h3><?php echo esc_html( $person['name'] ); ?></h3>
 						<p><?php echo esc_html( $person['role'] ); ?></p>
-						<a class="team-card__message" href="mailto:info@estatein.com"><span><?php esc_html_e( 'Say Hello', 'estatein' ); ?></span><?php estatein_icon( 'send' ); ?></a>
+						<a class="team-card__message" href="mailto:info@estatein.com"><span><?php esc_html_e( 'Say Hello 👋', 'estatein' ); ?></span><?php estatein_icon( 'send' ); ?></a>
 					</article>
 				<?php endforeach; ?>
 			<?php endif; ?>
