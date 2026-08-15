@@ -216,15 +216,20 @@ if [[ -z "${ESTATEIN_RCLONE_REMOTE}" ]]; then
   exit 1
 fi
 
-if ! "${ESTATEIN_RCLONE_BIN}" lsf \
+ESTATEIN_REMOTE_DIRS="$("${ESTATEIN_RCLONE_BIN}" lsf \
   --config "${ESTATEIN_RCLONE_CONFIG}" \
   --dirs-only \
-  "${ESTATEIN_RCLONE_REMOTE}:" | grep -Fxq "${ESTATEIN_WASMER_VOLUME}/"; then
+  "${ESTATEIN_RCLONE_REMOTE}:")"
+
+if grep -Fxq "${ESTATEIN_WASMER_VOLUME}/" <<<"${ESTATEIN_REMOTE_DIRS}"; then
+  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_WASMER_VOLUME}/"
+elif grep -Fxq 'plugins/' <<<"${ESTATEIN_REMOTE_DIRS}" && grep -Fxq 'themes/' <<<"${ESTATEIN_REMOTE_DIRS}"; then
+  ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:"
+else
   echo "Expected Wasmer volume '${ESTATEIN_WASMER_VOLUME}' was not found; nothing was changed" >&2
   exit 1
 fi
 
-ESTATEIN_REMOTE_ROOT="${ESTATEIN_RCLONE_REMOTE}:${ESTATEIN_WASMER_VOLUME}"
 ESTATEIN_RCLONE_SYNC_FLAGS=(
   --config "${ESTATEIN_RCLONE_CONFIG}"
   --checksum
@@ -237,13 +242,13 @@ ESTATEIN_RCLONE_SYNC_FLAGS=(
 echo "Syncing Estatein Core to ${ESTATEIN_WASMER_APP}..."
 "${ESTATEIN_RCLONE_BIN}" sync \
   "${ESTATEIN_DEPLOY_DIR}/release/estatein-core" \
-  "${ESTATEIN_REMOTE_ROOT}/plugins/estatein-core" \
+  "${ESTATEIN_REMOTE_ROOT}plugins/estatein-core" \
   "${ESTATEIN_RCLONE_SYNC_FLAGS[@]}"
 
 echo "Syncing the Estatein theme to ${ESTATEIN_WASMER_APP}..."
 "${ESTATEIN_RCLONE_BIN}" sync \
   "${ESTATEIN_DEPLOY_DIR}/release/estatein" \
-  "${ESTATEIN_REMOTE_ROOT}/themes/estatein" \
+  "${ESTATEIN_REMOTE_ROOT}themes/estatein" \
   "${ESTATEIN_RCLONE_SYNC_FLAGS[@]}"
 
 echo "Waiting for the public preview to serve the deployed theme..."
