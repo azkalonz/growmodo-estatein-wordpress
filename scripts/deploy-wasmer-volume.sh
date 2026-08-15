@@ -96,6 +96,7 @@ if ! estatein_fetch_volume_credentials; then
     >"${ESTATEIN_ROTATION_OUTPUT}" \
     2>&1; then
     echo "Wasmer could not initialize volume credentials; nothing was changed" >&2
+    grep -m 1 '^error:' "${ESTATEIN_ROTATION_OUTPUT}" >&2 || true
     exit 1
   fi
 
